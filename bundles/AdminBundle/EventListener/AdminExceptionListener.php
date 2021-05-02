@@ -7,12 +7,12 @@ declare(strict_types=1);
  *
  * This source file is available under two different licenses:
  * - GNU General Public License version 3 (GPLv3)
- * - Pimcore Enterprise License (PEL)
+ * - Pimcore Commercial License (PCL)
  * Full copyright and license information is available in
  * LICENSE.md which is distributed with this source code.
  *
- * @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
- * @license    http://www.pimcore.org/license     GPLv3 and PEL
+ *  @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
+ *  @license    http://www.pimcore.org/license     GPLv3 and PEL
  */
 
 namespace Pimcore\Bundle\AdminBundle\EventListener;
@@ -28,7 +28,10 @@ use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 
-class AdminExceptionListener implements EventSubscriberInterface
+/**
+ * @internal
+ */
+final class AdminExceptionListener implements EventSubscriberInterface
 {
     use PimcoreContextAwareTrait;
 
@@ -58,17 +61,16 @@ class AdminExceptionListener implements EventSubscriberInterface
 
             list($code, $headers, $message) = $this->getResponseData($ex);
 
+            $data = [
+                'success' => false,
+            ];
+
             if (!\Pimcore::inDebugMode()) {
                 // DBAL exceptions do include SQL statements, we don't want to expose them
                 if ($ex instanceof DBALException) {
                     $message = 'Database error, see logs for details';
                 }
             }
-
-            $data = [
-                'success' => false,
-                'message' => $message,
-            ];
 
             if (\Pimcore::inDebugMode()) {
                 $data['trace'] = $ex->getTrace();
@@ -79,10 +81,10 @@ class AdminExceptionListener implements EventSubscriberInterface
                 $data['type'] = 'ValidationException';
                 $code = 422;
 
-                $message = '';
                 $this->recursiveAddValidationExceptionSubItems($ex->getSubItems(), $message, $data['traceString']);
-                $data['message'] = $message;
             }
+
+            $data['message'] = $message;
 
             $response = new JsonResponse($data, $code, $headers);
             $event->setResponse($response);

@@ -3,7 +3,7 @@
  *
  * This source file is available under two different licenses:
  * - GNU General Public License version 3 (GPLv3)
- * - Pimcore Enterprise License (PEL)
+ * - Pimcore Commercial License (PCL)
  * Full copyright and license information is available in
  * LICENSE.md which is distributed with this source code.
  *
@@ -63,11 +63,6 @@ if (pimcore_document_id) {
     window.onbeforeunload = editWindow.iframeOnbeforeunload.bind(editWindow);
 }
 
-// we need to disable touch support here, otherwise drag & drop of new & existing areablock doesn't work on hybrid devices
-// see also https://github.com/pimcore/pimcore/issues/1542
-// this should be removed in later ExtJS version ( > 6.0) as this should be hopefully fixed by then
-Ext.supports.Touch = false;
-
 // overwrite default z-index of windows, this ensures that CKEditor is above ExtJS Windows
 Ext.WindowManager.zseed = 10020;
 
@@ -98,16 +93,6 @@ Ext.onReady(function () {
     // causes styling issues, we don't need this anyway
     body.removeCls("x-body");
 
-    /* Drag an Drop from Tree panel */
-    // IE HACK because the body is not 100% at height
-    try {
-        //TODO EXT5
-        Ext.getBody().applyStyles("min-height:" +
-            parent.Ext.get('document_iframe_' + window.editWindow.document.id).getHeight() + "px");
-    } catch (e) {
-        console.log(e);
-    }
-
     try {
         // init cross frame drag & drop handler
         dndManager = new pimcore.document.edit.dnd(parent.Ext, Ext.getBody(),
@@ -127,6 +112,18 @@ Ext.onReady(function () {
 
     if (typeof Ext == "object" && typeof pimcore == "object") {
 
+        // check for duplicate editables
+        var editableHtmlEls = {};
+        document.querySelectorAll('.pimcore_editable').forEach(editableEl => {
+            if(editableHtmlEls[editableEl.id] && editableEl.dataset.name) {
+                let message = "Duplicate editable name: " + editableEl.dataset.name;
+                pimcore.helpers.showNotification("ERROR", message, "error");
+                throw message;
+            }
+            editableHtmlEls[editableEl.id] = true;
+        });
+
+        // initialize editables
         editableDefinitions.forEach(editableDef => {
             editableManager.addByDefinition(editableDef);
         });
@@ -171,9 +168,9 @@ Ext.onReady(function () {
             ) {
                 new Ext.ToolTip({
                     target: tmpEl,
-                    showDelay: 100,
+                    showDelay: 1000,
                     hideDelay: 0,
-                    trackMouse: true,
+                    trackMouse: false,
                     html: t("click_right_for_more_options")
                 });
             }

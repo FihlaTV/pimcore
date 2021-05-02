@@ -1,15 +1,16 @@
 <?php
+
 /**
  * Pimcore
  *
  * This source file is available under two different licenses:
  * - GNU General Public License version 3 (GPLv3)
- * - Pimcore Enterprise License (PEL)
+ * - Pimcore Commercial License (PCL)
  * Full copyright and license information is available in
  * LICENSE.md which is distributed with this source code.
  *
- * @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
- * @license    http://www.pimcore.org/license     GPLv3 and PEL
+ *  @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
+ *  @license    http://www.pimcore.org/license     GPLv3 and PEL
  */
 
 namespace Pimcore\Bundle\CoreBundle\EventListener\Frontend;
@@ -33,6 +34,8 @@ use Symfony\Component\Routing\RouterInterface;
 
 /**
  * Modifies responses for editmode
+ *
+ * @internal
  */
 class EditmodeListener implements EventSubscriberInterface
 {
@@ -217,7 +220,7 @@ class EditmodeListener implements EventSubscriberInterface
                 $startupJavascript = '/bundles/pimcoreadmin/js/pimcore/document/edit/startup.js';
 
                 $headHtml = $this->buildHeadHtml($document, $user->getLanguage());
-                $bodyHtml = "\n\n" . $this->editableConfigCollector->getCode() . "\n\n";
+                $bodyHtml = "\n\n" . $this->editableConfigCollector->getHtml() . "\n\n";
                 $bodyHtml .= "\n\n" . '<script src="' . $startupJavascript . '?_dc=' . Version::getRevision() . '"></script>' . "\n\n";
 
                 $html = $this->insertBefore('</head>', $html, $headHtml);

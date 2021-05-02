@@ -7,35 +7,82 @@ declare(strict_types=1);
  *
  * This source file is available under two different licenses:
  * - GNU General Public License version 3 (GPLv3)
- * - Pimcore Enterprise License (PEL)
+ * - Pimcore Commercial License (PCL)
  * Full copyright and license information is available in
  * LICENSE.md which is distributed with this source code.
  *
- * @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
- * @license    http://www.pimcore.org/license     GPLv3 and PEL
+ *  @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
+ *  @license    http://www.pimcore.org/license     GPLv3 and PEL
  */
 
 namespace Pimcore\Document\Editable;
 
 use Pimcore\Model\Document\Editable;
 
+/**
+ * @internal
+ */
 final class EditmodeEditableDefinitionCollector
 {
+    private bool $stopped = false;
+
+    /**
+     * @var array
+     */
+    private array $editableDefinitions = [];
+
     /**
      * @var Editable[]
      */
-    private array $editables = [];
+    private array $stash = [];
 
+    /**
+     * @param Editable $editable
+     *
+     * @throws \Exception
+     */
     public function add(Editable $editable): void
     {
-        $this->editables[$editable->getName()] = $editable;
+        if ($this->stopped) {
+            return;
+        }
+
+        $this->editableDefinitions[$editable->getName()] = $editable->getEditmodeDefinition();
     }
 
+    /**
+     * @param Editable $editable
+     */
     public function remove(Editable $editable): void
     {
-        if (isset($this->editables[$editable->getName()])) {
-            unset($this->editables[$editable->getName()]);
+        if ($this->stopped) {
+            return;
         }
+
+        if (isset($this->editableDefinitions[$editable->getName()])) {
+            unset($this->editableDefinitions[$editable->getName()]);
+        }
+    }
+
+    public function start(): void
+    {
+        $this->stopped = false;
+    }
+
+    public function stop(): void
+    {
+        $this->stopped = true;
+    }
+
+    public function stashPush(): void
+    {
+        $this->stash = $this->editableDefinitions;
+        $this->editableDefinitions = [];
+    }
+
+    public function stashPull(): void
+    {
+        $this->editableDefinitions = $this->stash;
     }
 
     /**
@@ -56,22 +103,35 @@ final class EditmodeEditableDefinitionCollector
         return $value;
     }
 
-    public function getCode(): string
+    /**
+     * @return array
+     */
+    public function getDefinitions(): array
     {
         $configs = [];
-        foreach ($this->editables as $editable) {
-            $configs[] = $this->clearConfig($editable->getEditmodeDefinition());
+        foreach ($this->editableDefinitions as $definition) {
+            $configs[] = $this->clearConfig($definition);
         }
 
+        return $configs;
+    }
+
+    private function getJson(): string
+    {
+        return json_encode($this->getDefinitions(), JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * @return string
+     * @throws \JsonException
+     */
+    public function getHtml(): string
+    {
         $code = '
             <script>
-                var editableDefinitions = ' . json_encode($configs, JSON_PRETTY_PRINT) . ';
+                var editableDefinitions = ' . $this->getJson() . ';
             </script>
         ';
-
-        if (json_last_error()) {
-            throw new \Exception('json encode failed: ' . json_last_error_msg());
-        }
 
         return $code;
     }

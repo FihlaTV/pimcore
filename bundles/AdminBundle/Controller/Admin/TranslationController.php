@@ -1,15 +1,16 @@
 <?php
+
 /**
  * Pimcore
  *
  * This source file is available under two different licenses:
  * - GNU General Public License version 3 (GPLv3)
- * - Pimcore Enterprise License (PEL)
+ * - Pimcore Commercial License (PCL)
  * Full copyright and license information is available in
  * LICENSE.md which is distributed with this source code.
  *
- * @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
- * @license    http://www.pimcore.org/license     GPLv3 and PEL
+ *  @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
+ *  @license    http://www.pimcore.org/license     GPLv3 and PEL
  */
 
 namespace Pimcore\Bundle\AdminBundle\Controller\Admin;
@@ -41,8 +42,10 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * @Route("/translation")
+ *
+ * @internal
  */
-class TranslationController extends AdminController
+final class TranslationController extends AdminController
 {
     /**
      * @Route("/import", name="pimcore_admin_translation_import", methods={"POST"})
@@ -275,7 +278,7 @@ class TranslationController extends AdminController
         $response = new Response("\xEF\xBB\xBF" . $csv);
         $response->headers->set('Content-Encoding', 'UTF-8');
         $response->headers->set('Content-Type', 'text/csv; charset=UTF-8');
-        $response->headers->set('Content-Disposition', 'attachment; filename="export_ ' . $domain . '_translations.csv"');
+        $response->headers->set('Content-Disposition', 'attachment; filename="export_' . $domain . '_translations.csv"');
         ini_set('display_errors', false); //to prevent warning messages in csv
 
         return $response;
@@ -366,7 +369,7 @@ class TranslationController extends AdminController
 
                 foreach ($data as $key => $value) {
                     $key = preg_replace('/^_/', '', $key, 1);
-                    if ($key != 'key') {
+                    if (!in_array($key, ['key', 'type'])) {
                         $t->addTranslation($key, $value);
                     }
                 }
@@ -374,13 +377,20 @@ class TranslationController extends AdminController
                 if ($data['key']) {
                     $t->setKey($data['key']);
                 }
+
+                if ($data['type']) {
+                    $t->setType($data['type']);
+                }
                 $t->setModificationDate(time());
                 $t->save();
 
                 $return = array_merge(
-                    ['key' => $t->getKey(),
+                    [
+                        'key' => $t->getKey(),
                         'creationDate' => $t->getCreationDate(),
-                        'modificationDate' => $t->getModificationDate(), ],
+                        'modificationDate' => $t->getModificationDate(),
+                        'type' => $t->getType(),
+                    ],
                     $this->prefixTranslations($t->getTranslations())
                 );
 
@@ -396,6 +406,7 @@ class TranslationController extends AdminController
                 $t->setKey($data['key']);
                 $t->setCreationDate(time());
                 $t->setModificationDate(time());
+                $t->setType($data['type'] ?? null);
 
                 foreach (Tool::getValidLanguages() as $lang) {
                     $t->addTranslation($lang, '');
@@ -407,6 +418,7 @@ class TranslationController extends AdminController
                         'key' => $t->getKey(),
                         'creationDate' => $t->getCreationDate(),
                         'modificationDate' => $t->getModificationDate(),
+                        'type' => $t->getType(),
                     ],
                     $this->prefixTranslations($t->getTranslations())
                 );
@@ -436,8 +448,8 @@ class TranslationController extends AdminController
                         'language' => $orderKey,
                     ];
                     $list->setOrderKey($orderKey);
-                } else {
-                    $list->setOrderKey($tableName . '.' . $sortingSettings['orderKey'], false);
+                } elseif ($list->isValidOrderKey($sortingSettings['orderKey'])) {
+                    $list->setOrderKey($sortingSettings['orderKey']);
                 }
             }
             if ($sortingSettings['order']) {
@@ -465,9 +477,12 @@ class TranslationController extends AdminController
             foreach ($list->getTranslations() as $t) {
                 $translations[] = array_merge(
                     $this->prefixTranslations($t->getTranslations()),
-                    ['key' => $t->getKey(),
+                    [
+                        'key' => $t->getKey(),
                         'creationDate' => $t->getCreationDate(),
-                        'modificationDate' => $t->getModificationDate(), ]
+                        'modificationDate' => $t->getModificationDate(),
+                        'type' => $t->getType(),
+                    ]
                 );
             }
 
@@ -523,10 +538,10 @@ class TranslationController extends AdminController
                         }
                         $alreadyJoined[$fieldname] = 1;
 
-                        $select->addSelect('text AS ' . $fieldname);
+                        $select->addSelect($fieldname . '.text AS ' . $fieldname);
                         $select->leftJoin(
                             $tableName,
-                            $fieldname,
+                            $tableName,
                             $fieldname,
                             '('
                             . $fieldname . '.key = ' . $tableName . '.key'

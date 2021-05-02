@@ -3,7 +3,7 @@
  *
  * This source file is available under two different licenses:
  * - GNU General Public License version 3 (GPLv3)
- * - Pimcore Enterprise License (PEL)
+ * - Pimcore Commercial License (PCL)
  * Full copyright and license information is available in
  * LICENSE.md which is distributed with this source code.
  *
@@ -69,7 +69,7 @@ pimcore.document.area_abstract = Class.create(pimcore.document.editable, {
 
     getEditablesInDialogBox: function (id) {
         let editablesInDialogBox = {};
-        window.editables.forEach(function (editable) {
+        Object.values(editableManager.getEditables()).forEach(editable => {
             if(editable.getInDialogBox() === id) {
                 editablesInDialogBox[editable.getRealName()] = editable;
             }

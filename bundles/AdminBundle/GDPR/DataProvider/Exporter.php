@@ -1,17 +1,19 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * Pimcore
  *
  * This source file is available under two different licenses:
  * - GNU General Public License version 3 (GPLv3)
- * - Pimcore Enterprise License (PEL)
+ * - Pimcore Commercial License (PCL)
  * Full copyright and license information is available in
  * LICENSE.md which is distributed with this source code.
  *
- * @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
- * @license    http://www.pimcore.org/license     GPLv3 and PEL
+ *  @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
+ *  @license    http://www.pimcore.org/license     GPLv3 and PEL
  */
-declare(strict_types=1);
 
 namespace Pimcore\Bundle\AdminBundle\GDPR\DataProvider;
 
@@ -21,6 +23,7 @@ use Pimcore\Model\DataObject\ClassDefinition\Data;
 use Pimcore\Model\DataObject\Concrete;
 use Pimcore\Model\DataObject\Fieldcollection;
 use Pimcore\Model\DataObject\Objectbrick;
+use Pimcore\Normalizer\NormalizerInterface;
 
 /**
  * Class Exporter
@@ -41,7 +44,7 @@ class Exporter
     {
         $webAsset = [];
         $webAsset['id'] = $theAsset->getId();
-        $webAsset['fullpath'] = $theAsset->getFullPath();
+        $webAsset['fullpath'] = $theAsset->getRealFullPath();
         $properties = $theAsset->getProperties();
         $finalProperties = [];
 
@@ -79,9 +82,10 @@ class Exporter
                 foreach ($fDefs as $fd) {
                     $getter = 'get' . ucfirst($fd->getName());
                     $value = $brickValue->$getter();
-                    $marshalledValue = $fd->marshal($value, $object, ['blockmode' => true]);
-
-                    $resultContainer[$brickType][$fd->getName()] = $marshalledValue;
+                    if ($fd instanceof NormalizerInterface) {
+                        $marshalledValue = $fd->normalize($value);
+                        $resultContainer[$brickType][$fd->getName()] = $marshalledValue;
+                    }
                 }
             }
         }
@@ -112,9 +116,11 @@ class Exporter
             foreach ($fDefs as $fd) {
                 $getter = 'get' . ucfirst($fd->getName());
                 $value = $item->$getter();
-                $marshalledValue = $fd->marshal($value, $object, ['blockmode' => true]);
 
-                $itemValues[$fd->getName()] = $marshalledValue;
+                if ($fd instanceof NormalizerInterface) {
+                    $marshalledValue = $fd->normalize($value);
+                    $itemValues[$fd->getName()] = $marshalledValue;
+                }
             }
 
             $resultContainer[] = [
@@ -147,8 +153,10 @@ class Exporter
             } elseif ($fd instanceof Data\Objectbricks) {
                 self::doExportBrick($object, $result, $value, $fd);
             } else {
-                $marshalledValue = $fd->marshal($value, $object, ['blockmode' => true]);
-                $result[$fd->getName()] = $marshalledValue;
+                if ($fd instanceof NormalizerInterface) {
+                    $marshalledValue = $fd->normalize($value);
+                    $result[$fd->getName()] = $marshalledValue;
+                }
             }
         }
     }

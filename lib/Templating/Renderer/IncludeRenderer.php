@@ -1,15 +1,16 @@
 <?php
+
 /**
  * Pimcore
  *
  * This source file is available under two different licenses:
  * - GNU General Public License version 3 (GPLv3)
- * - Pimcore Enterprise License (PEL)
+ * - Pimcore Commercial License (PCL)
  * Full copyright and license information is available in
  * LICENSE.md which is distributed with this source code.
  *
- * @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
- * @license    http://www.pimcore.org/license     GPLv3 and PEL
+ *  @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
+ *  @license    http://www.pimcore.org/license     GPLv3 and PEL
  */
 
 namespace Pimcore\Templating\Renderer;
@@ -24,6 +25,9 @@ use Pimcore\Tool\DeviceDetector;
 use Pimcore\Tool\DomCrawler;
 use Pimcore\Tool\Frontend;
 
+/**
+ * @internal
+ */
 class IncludeRenderer
 {
     /**
@@ -116,14 +120,6 @@ class IncludeRenderer
             }
         }
 
-        // TODO remove dependency on registry setting
-        $editmodeBackup = false;
-        if (\Pimcore\Cache\Runtime::isRegistered('pimcore_editmode')) {
-            $editmodeBackup = \Pimcore\Cache\Runtime::get('pimcore_editmode');
-        }
-
-        \Pimcore\Cache\Runtime::set('pimcore_editmode', false);
-
         $params = array_merge($params, ['document' => $include]);
         $content = '';
 
@@ -134,8 +130,6 @@ class IncludeRenderer
                 $content = $this->modifyEditmodeContent($include, $content);
             }
         }
-
-        \Pimcore\Cache\Runtime::set('pimcore_editmode', $editmodeBackup);
 
         // write contents to the cache, if output-cache is enabled & not in editmode
         if ($cacheConfig && !$editmode && !DeviceDetector::getInstance()->wasUsed()) {

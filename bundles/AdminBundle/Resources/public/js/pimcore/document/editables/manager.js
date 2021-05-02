@@ -3,7 +3,7 @@
  *
  * This source file is available under two different licenses:
  * - GNU General Public License version 3 (GPLv3)
- * - Pimcore Enterprise License (PEL)
+ * - Pimcore Commercial License (PCL)
  * Full copyright and license information is available in
  * LICENSE.md which is distributed with this source code.
  *
@@ -36,10 +36,6 @@ pimcore.document.editables.manager = Class.create({
             throw 'Editable of type `' + type + '` with name `' + name + '` does not support the use in the dialog box.';
         }
 
-        if (this.editables[name]) {
-            pimcore.helpers.showNotification("ERROR", "Duplicate editable name: " + name, "error");
-        }
-
         let editable = new EditableClass(definition.id, name, definition.config, definition.data, inherited);
         editable.setRealName(definition.realName);
         editable.setInDialogBox(definition.inDialogBox);
@@ -55,6 +51,10 @@ pimcore.document.editables.manager = Class.create({
         if (definition['config']['required']) {
             this.requiredEditables[definition['name']] = editable;
         }
+    },
+
+    add: function(editable) {
+        this.editables[editable.getName()] = editable;
     },
 
     remove: function(name) {

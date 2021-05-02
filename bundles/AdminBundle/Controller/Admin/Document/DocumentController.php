@@ -1,15 +1,16 @@
 <?php
+
 /**
  * Pimcore
  *
  * This source file is available under two different licenses:
  * - GNU General Public License version 3 (GPLv3)
- * - Pimcore Enterprise License (PEL)
+ * - Pimcore Commercial License (PCL)
  * Full copyright and license information is available in
  * LICENSE.md which is distributed with this source code.
  *
- * @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
- * @license    http://www.pimcore.org/license     GPLv3 and PEL
+ *  @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
+ *  @license    http://www.pimcore.org/license     GPLv3 and PEL
  */
 
 namespace Pimcore\Bundle\AdminBundle\Controller\Admin\Document;
@@ -42,8 +43,10 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
  * @Route("/document")
+ *
+ * @internal
  */
-class DocumentController extends ElementControllerBase implements KernelControllerEventInterface
+final class DocumentController extends ElementControllerBase implements KernelControllerEventInterface
 {
     use DocumentTreeConfigTrait;
 
@@ -256,9 +259,11 @@ class DocumentController extends ElementControllerBase implements KernelControll
                     $createValues['template'] = $docType->getTemplate();
                     $createValues['controller'] = $docType->getController();
                 } elseif ($request->get('translationsBaseDocument')) {
-                    $translationsBaseDocument = Document\PageSnippet::getById($request->get('translationsBaseDocument'));
-                    $createValues['template'] = $translationsBaseDocument->getTemplate();
-                    $createValues['controller'] = $translationsBaseDocument->getController();
+                    $translationsBaseDocument = Document::getById($request->get('translationsBaseDocument'));
+                    if ($translationsBaseDocument instanceof Document\PageSnippet) {
+                        $createValues['template'] = $translationsBaseDocument->getTemplate();
+                        $createValues['controller'] = $translationsBaseDocument->getController();
+                    }
                 } elseif ($request->get('type') == 'page' || $request->get('type') == 'snippet' || $request->get('type') == 'email') {
                     $createValues['controller'] = $this->getParameter('pimcore.documents.default_controller');
                 }
@@ -530,12 +535,9 @@ class DocumentController extends ElementControllerBase implements KernelControll
         if ($document instanceof Document\Page || $document instanceof Document\Hardlink) {
             if ($request->get('create_redirects') === 'true' && $this->getAdminUser()->isAllowed('redirects')) {
                 if ($oldPath && $oldPath != $document->getRealFullPath()) {
-                    $sourceSite = null;
-                    if ($oldDocument) {
-                        $sourceSite = Frontend::getSiteForDocument($oldDocument);
-                        if ($sourceSite) {
-                            $oldPath = preg_replace('@^' . preg_quote($sourceSite->getRootPath(), '@') . '@', '', $oldPath);
-                        }
+                    $sourceSite = Frontend::getSiteForDocument($oldDocument);
+                    if ($sourceSite) {
+                        $oldPath = preg_replace('@^' . preg_quote($sourceSite->getRootPath(), '@') . '@', '', $oldPath);
                     }
 
                     $targetSite = Frontend::getSiteForDocument($document);
@@ -805,7 +807,7 @@ class DocumentController extends ElementControllerBase implements KernelControll
         $site->save();
 
         $site->setRootDocument(null); // do not send the document to the frontend
-        return $this->adminJson($site);
+        return $this->adminJson($site->getObjectVars());
     }
 
     /**
@@ -1346,7 +1348,7 @@ class DocumentController extends ElementControllerBase implements KernelControll
         $translations = is_null($translations) ? $service->getTranslations($document) : $translations;
 
         foreach ($languages as $language) {
-            if ($languageDocument = $translations[$language]) {
+            if ($languageDocument = $translations[$language] ?? false) {
                 $languageDocument = Document::getById($languageDocument);
                 $config[$language] = [
                     'text' => $languageDocument->getKey(),

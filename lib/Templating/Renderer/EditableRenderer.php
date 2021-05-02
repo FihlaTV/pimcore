@@ -1,15 +1,16 @@
 <?php
+
 /**
  * Pimcore
  *
  * This source file is available under two different licenses:
  * - GNU General Public License version 3 (GPLv3)
- * - Pimcore Enterprise License (PEL)
+ * - Pimcore Commercial License (PCL)
  * Full copyright and license information is available in
  * LICENSE.md which is distributed with this source code.
  *
- * @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
- * @license    http://www.pimcore.org/license     GPLv3 and PEL
+ *  @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
+ *  @license    http://www.pimcore.org/license     GPLv3 and PEL
  */
 
 namespace Pimcore\Templating\Renderer;
@@ -22,6 +23,9 @@ use Pimcore\Model\Document\PageSnippet;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 
+/**
+ * @internal
+ */
 class EditableRenderer implements LoggerAwareInterface
 {
     use LoggerAwareTrait;
@@ -63,7 +67,7 @@ class EditableRenderer implements LoggerAwareInterface
     /**
      * @param PageSnippet $document
      * @param string $type
-     * @param string $inputName
+     * @param string $name
      * @param array $config
      * @param bool|null $editmode
      *
@@ -71,12 +75,13 @@ class EditableRenderer implements LoggerAwareInterface
      *
      * @throws \Exception
      */
-    public function getEditable(PageSnippet $document, string $type, string $inputName, array $config = [], bool $editmode = null): Editable\EditableInterface
+    public function getEditable(PageSnippet $document, string $type, string $name, array $config = [], bool $editmode = null): Editable\EditableInterface
     {
         $type = strtolower($type);
 
-        $name = Editable::buildEditableName($type, $inputName, $document);
-        $realName = Editable::buildEditableRealName($inputName, $document);
+        $originalName = $name;
+        $name = Editable::buildEditableName($type, $originalName, $document);
+        $realName = Editable::buildEditableRealName($originalName, $document);
 
         if (null === $editmode) {
             $editmode = $this->editmodeResolver->isEditmode();
@@ -88,20 +93,25 @@ class EditableRenderer implements LoggerAwareInterface
             if (method_exists($editable, 'load')) {
                 $editable->load();
             }
-
-            $editable->setEditmode($editmode);
-            $editable->setConfig($config);
-            $editable->setDocument($document);
         } else {
-            $editable = Editable::factory($type, $name, $document->getId(), $config, null, null, $editmode);
+            $editable = $this->editableLoader->build($type);
+            $editable->setName($name);
             $document->setEditable($editable);
+
+            //set default value on initial build
+            if (isset($config['defaultValue'])) {
+                $editable->setDataFromResource($config['defaultValue']);
+            }
         }
 
+        $editable->setDocument($document);
+        $editable->setEditmode($editmode);
         // set the real name of this editable, without the prefixes and suffixes from blocks and areablocks
         $editable->setRealName($realName);
+        $editable->setConfig($config);
 
         if ($editmode) {
-            $this->configCollector->add($editable);
+            $editable->setEditableDefinitionCollector($this->configCollector);
         }
 
         return $editable;
@@ -112,7 +122,7 @@ class EditableRenderer implements LoggerAwareInterface
      *
      * @param PageSnippet $document
      * @param string $type
-     * @param string $inputName
+     * @param string $name
      * @param array $options
      * @param bool|null $editmode
      *
@@ -120,8 +130,8 @@ class EditableRenderer implements LoggerAwareInterface
      *
      * @throws \Exception
      */
-    public function render(PageSnippet $document, $type, $inputName, array $options = [], bool $editmode = null)
+    public function render(PageSnippet $document, string $type, string $name, array $options = [], bool $editmode = null)
     {
-        return $this->getEditable($document, $type, $inputName, $options, $editmode);
+        return $this->getEditable($document, $type, $name, $options, $editmode);
     }
 }

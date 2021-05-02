@@ -1,15 +1,16 @@
 <?php
+
 /**
  * Pimcore
  *
  * This source file is available under two different licenses:
  * - GNU General Public License version 3 (GPLv3)
- * - Pimcore Enterprise License (PEL)
+ * - Pimcore Commercial License (PCL)
  * Full copyright and license information is available in
  * LICENSE.md which is distributed with this source code.
  *
- * @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
- * @license    http://www.pimcore.org/license     GPLv3 and PEL
+ *  @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
+ *  @license    http://www.pimcore.org/license     GPLv3 and PEL
  */
 
 namespace Pimcore\Bundle\AdminBundle\Controller\Admin;
@@ -27,8 +28,10 @@ use Symfony\Component\Routing\Annotation\Route;
 
 /**
  * @Route("/email")
+ *
+ * @internal
  */
-class EmailController extends AdminController
+final class EmailController extends AdminController
 {
     /**
      * @Route("/email-logs", name="pimcore_admin_email_emaillogs", methods={"GET", "POST"})
@@ -459,7 +462,7 @@ class EmailController extends AdminController
                 $address->setValues($data);
                 $address->save();
 
-                return $this->adminJson(['data' => $address, 'success' => true]);
+                return $this->adminJson(['data' => $address->getObjectVars(), 'success' => true]);
             } elseif ($request->get('xaction') == 'create') {
                 unset($data['id']);
 
@@ -467,7 +470,7 @@ class EmailController extends AdminController
                 $address->setValues($data);
                 $address->save();
 
-                return $this->adminJson(['data' => $address, 'success' => true]);
+                return $this->adminJson(['data' => $address->getObjectVars(), 'success' => true]);
             }
         } else {
             // get list of routes
@@ -490,10 +493,16 @@ class EmailController extends AdminController
             }
 
             $data = $list->load();
+            $jsonData = [];
+            if (is_array($data)) {
+                foreach ($data as $entry) {
+                    $jsonData[] = $entry->getObjectVars();
+                }
+            }
 
             return $this->adminJson([
                 'success' => true,
-                'data' => $data,
+                'data' => $jsonData,
                 'total' => $list->getTotalCount(),
             ]);
         }

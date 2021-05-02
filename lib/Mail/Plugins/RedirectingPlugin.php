@@ -1,15 +1,16 @@
 <?php
+
 /**
  * Pimcore
  *
  * This source file is available under two different licenses:
  * - GNU General Public License version 3 (GPLv3)
- * - Pimcore Enterprise License (PEL)
+ * - Pimcore Commercial License (PCL)
  * Full copyright and license information is available in
  * LICENSE.md which is distributed with this source code.
  *
- * @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
- * @license    http://www.pimcore.org/license     GPLv3 and PEL
+ *  @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
+ *  @license    http://www.pimcore.org/license     GPLv3 and PEL
  */
 
 namespace Pimcore\Mail\Plugins;
@@ -18,7 +19,10 @@ use Pimcore\Helper\Mail as MailHelper;
 use Pimcore\Mail;
 use Symfony\Component\Mime\Header\MailboxListHeader;
 
-class RedirectingPlugin
+/**
+ * @internal
+ */
+final class RedirectingPlugin
 {
     /**
      * The recipient who will receive all messages.
@@ -79,9 +83,6 @@ class RedirectingPlugin
             $this->appendDebugInformation($message);
             // Add each hard coded recipient
             $to = $message->getTo();
-            if (null === $to) {
-                $to = [];
-            }
 
             foreach ((array) $this->recipient as $recipient) {
                 if (!array_key_exists($recipient, $to)) {
@@ -117,7 +118,7 @@ class RedirectingPlugin
      *
      * @param Mail $message
      */
-    protected function appendDebugInformation(Mail $message)
+    private function appendDebugInformation(Mail $message)
     {
         if ($message->isPreventingDebugInformationAppending() != true) {
             $originalData = [];
@@ -166,7 +167,7 @@ class RedirectingPlugin
      *
      * @param Mail $message
      */
-    protected function setSenderAndReceiversParams($message)
+    private function setSenderAndReceiversParams($message)
     {
         $originalData = $message->getOriginalData();
 
@@ -182,7 +183,7 @@ class RedirectingPlugin
      *
      * @param Mail $message
      */
-    protected function removeDebugInformation(Mail $message)
+    private function removeDebugInformation(Mail $message)
     {
         $originalData = $message->getOriginalData();
 

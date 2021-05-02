@@ -1,15 +1,16 @@
 <?php
+
 /**
  * Pimcore
  *
  * This source file is available under two different licenses:
  * - GNU General Public License version 3 (GPLv3)
- * - Pimcore Enterprise License (PEL)
+ * - Pimcore Commercial License (PCL)
  * Full copyright and license information is available in
  * LICENSE.md which is distributed with this source code.
  *
- * @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
- * @license    http://www.pimcore.org/license     GPLv3 and PEL
+ *  @copyright  Copyright (c) Pimcore GmbH (http://www.pimcore.org)
+ *  @license    http://www.pimcore.org/license     GPLv3 and PEL
  */
 
 namespace Pimcore\Bundle\CoreBundle\Controller;
@@ -21,25 +22,29 @@ use Pimcore\Logger;
 use Pimcore\Model\Asset;
 use Pimcore\Model\Site;
 use Pimcore\Model\Tool\TmpStore;
+use Pimcore\Tool\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\EventListener\AbstractSessionListener;
 use Symfony\Component\HttpKernel\EventListener\SessionListener;
 
-class PublicServicesController extends Controller
+/**
+ * @internal
+ */
+final class PublicServicesController extends Controller
 {
     /**
      * @param Request $request
      * @param SessionListener $sessionListener
      *
-     * @return BinaryFileResponse
+     * @return BinaryFileResponse|StreamedResponse
      */
     public function thumbnailAction(Request $request, SessionListener $sessionListener)
     {
-        $errorImage = PIMCORE_WEB_ROOT . '/bundles/pimcoreadmin/img/filetype-not-supported.svg';
         $assetId = $request->get('assetId');
         $thumbnailName = $request->get('thumbnailName');
         $filename = $request->get('filename');
@@ -53,8 +58,7 @@ class PublicServicesController extends Controller
             // assets via rewrite rules
             try {
                 $imageThumbnail = null;
-                $thumbnailFile = null;
-                $thumbnailConfig = null;
+                $thumbnailStream = null;
 
                 // just check if the thumbnail exists -> throws exception otherwise
                 $thumbnailConfig = Asset\Image\Thumbnail\Config::getByName($thumbnailName);
@@ -93,7 +97,7 @@ class PublicServicesController extends Controller
                     }
 
                     $imageThumbnail = $asset->getImageThumbnail($thumbnailConfig, $time);
-                    $thumbnailFile = $imageThumbnail->getFileSystemPath();
+                    $thumbnailStream = $imageThumbnail->getStream();
                 } elseif ($asset instanceof Asset\Document) {
                     $page = 1;
                     if (preg_match("|~\-~page\-(\d+)\.|", $filename, $matchesThumbs)) {
@@ -104,7 +108,7 @@ class PublicServicesController extends Controller
                     $thumbnailConfig->setName(str_replace('document_', '', $thumbnailConfig->getName()));
 
                     $imageThumbnail = $asset->getImageThumbnail($thumbnailConfig, $page);
-                    $thumbnailFile = $imageThumbnail->getFileSystemPath();
+                    $thumbnailStream = $imageThumbnail->getStream();
                 } elseif ($asset instanceof Asset\Image) {
                     //check if high res image is called
 
@@ -121,22 +125,19 @@ class PublicServicesController extends Controller
                     }
 
                     $imageThumbnail = $asset->getThumbnail($thumbnailConfig);
-                    $thumbnailFile = $imageThumbnail->getFileSystemPath();
+                    $thumbnailStream = $imageThumbnail->getStream();
                 }
 
-                if ($imageThumbnail && $thumbnailFile && file_exists($thumbnailFile)) {
-                    $actualFileExtension = File::getFileExtension($thumbnailFile);
+                if ($imageThumbnail && $thumbnailStream) {
+                    $pathReference = $imageThumbnail->getPathReference();
+                    $actualFileExtension = File::getFileExtension($pathReference['src']);
 
-                    if ($actualFileExtension !== $requestedFileExtension && $thumbnailFile != $errorImage) {
+                    if ($actualFileExtension !== $requestedFileExtension) {
                         // create a copy/symlink to the file with the original file extension
                         // this can be e.g. the case when the thumbnail is called as foo.png but the thumbnail config
                         // is set to auto-optimized format so the resulting thumbnail can be jpeg
-                        $requestedFile = preg_replace('/\.' . $actualFileExtension . '$/', '.' . $requestedFileExtension, $thumbnailFile);
-                        $linked = is_link($requestedFile) || symlink($thumbnailFile, $requestedFile);
-                        if (false === $linked) {
-                            // create a hard copy
-                            copy($thumbnailFile, $requestedFile);
-                        }
+                        $requestedFile = preg_replace('/\.' . $actualFileExtension . '$/', '.' . $requestedFileExtension, $pathReference['src']);
+                        Storage::get('thumbnail')->writeStream($requestedFile, $thumbnailStream);
                     }
 
                     // set appropriate caching headers
@@ -147,16 +148,22 @@ class PublicServicesController extends Controller
                         'Cache-Control' => 'public, max-age=' . $lifetime,
                         'Expires' => date('D, d M Y H:i:s T', time() + $lifetime),
                         'Content-Type' => $imageThumbnail->getMimeType(),
+                        'Content-Length' => fstat($thumbnailStream)['size'],
                     ];
 
                     $headers[AbstractSessionListener::NO_AUTO_CACHE_CONTROL_HEADER] = true;
 
-                    return new BinaryFileResponse($thumbnailFile, 200, $headers);
+                    return new StreamedResponse(function () use ($thumbnailStream) {
+                        fpassthru($thumbnailStream);
+                    }, 200, $headers);
+                } else {
+                    throw new \Exception('Unable to generate thumbnail, see logs for details.');
                 }
             } catch (\Exception $e) {
                 $message = "Thumbnail with name '" . $thumbnailName . "' doesn't exist";
                 Logger::error($message);
-                throw $this->createNotFoundException($message, $e);
+
+                return new BinaryFileResponse(PIMCORE_WEB_ROOT . '/bundles/pimcoreadmin/img/filetype-not-supported.svg', 200);
             }
         } else {
             throw $this->createNotFoundException('Asset not found');
